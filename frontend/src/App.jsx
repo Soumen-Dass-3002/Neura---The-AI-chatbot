@@ -4,12 +4,12 @@ import ChatWindow from './components/ChatWindow';
 import InputBar from './components/InputBar';
 
 const STORAGE_KEY_HISTORY = 'neura_chat_history_v1';
-const STORAGE_KEY_ACTIVE = 'neura_active_chat_v1';
 
 // Direct production backend URL fallback
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://neura-the-ai-chatbot-2.onrender.com';
 
 function App() {
+  // Mobile sidebar closed by default
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
@@ -17,7 +17,7 @@ function App() {
   const [toastText, setToastText] = useState('');
   const [toastShow, setToastShow] = useState(false);
 
-  // Initialize Chat History from localStorage so chats persist across page reloads
+  // Initialize Chat History from localStorage so previous chats persist in sidebar
   const [chatHistory, setChatHistory] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_HISTORY);
@@ -28,18 +28,13 @@ function App() {
     }
   });
 
-  // Initialize Active Chat ID from localStorage
-  const [activeChatId, setActiveChatId] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY_ACTIVE) || null;
-    } catch (e) {
-      return null;
-    }
-  });
+  // Always start on "New Chat" (null activeChatId) when website or new tab opens!
+  const [activeChatId, setActiveChatId] = useState(null);
 
   const abortControllerRef = useRef(null);
   const toastTimeoutRef = useRef(null);
 
+  // Save chat history to localStorage on updates
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(chatHistory));
@@ -47,18 +42,6 @@ function App() {
       console.error('Failed to save history to localStorage', e);
     }
   }, [chatHistory]);
-
-  useEffect(() => {
-    try {
-      if (activeChatId) {
-        localStorage.setItem(STORAGE_KEY_ACTIVE, activeChatId);
-      } else {
-        localStorage.removeItem(STORAGE_KEY_ACTIVE);
-      }
-    } catch (e) {
-      console.error('Failed to save active chat to localStorage', e);
-    }
-  }, [activeChatId]);
 
   const showToast = useCallback((msg) => {
     setToastText(msg);
@@ -82,7 +65,9 @@ function App() {
 
     if (!targetChatId) {
       targetChatId = `chat-${Date.now()}`;
-      const title = text.length > 25 ? text.slice(0, 24) + '...' : text;
+      // Clean display title for new chat
+      const firstLine = text.split('\n')[0];
+      const title = firstLine.length > 25 ? firstLine.slice(0, 24) + '...' : firstLine;
       const newChat = {
         id: targetChatId,
         title,

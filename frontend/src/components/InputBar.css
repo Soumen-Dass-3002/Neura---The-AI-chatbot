@@ -31,6 +31,51 @@
   box-shadow: 0 12px 30px -4px rgba(79, 70, 229, 0.14), 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
+/* Attached file chip */
+.attached-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #EEF2FF;
+  border: 1px solid #C7D2FE;
+  color: #4F46E5;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  width: fit-content;
+  margin-bottom: 6px;
+  animation: fadeIn 0.2s ease;
+}
+
+.attached-file-chip .file-name {
+  font-weight: 600;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attached-file-chip .file-size {
+  color: #818CF8;
+  font-size: 11px;
+}
+
+.remove-file-btn {
+  background: none;
+  border: none;
+  color: #6366F1;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+  margin-left: 4px;
+  border-radius: 4px;
+}
+
+.remove-file-btn:hover {
+  color: #EF4444;
+}
+
 .composer-textarea {
   width: 100%;
   min-height: 44px;

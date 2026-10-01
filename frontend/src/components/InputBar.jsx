@@ -3,7 +3,9 @@ import './InputBar.css';
 
 function InputBar({ onSend, isLoading, onStopGenerating, showToast }) {
   const [text, setText] = useState('');
+  const [attachedFile, setAttachedFile] = useState(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -12,14 +14,65 @@ function InputBar({ onSend, isLoading, onStopGenerating, showToast }) {
     }
   }, [text]);
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check file size (limit to 5MB for text/code)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File too large (max 5MB)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAttachedFile({
+        name: file.name,
+        size: (file.size / 1024).toFixed(1) + ' KB',
+        content: event.target.result
+      });
+      showToast(`Attached file: ${file.name}`);
+    };
+
+    // If it's a text-based or code file, read as text
+    if (file.type.startsWith('text/') || file.name.match(/\.(js|jsx|ts|tsx|json|html|css|md|txt|py|cpp|c|java|csv)$/i)) {
+      reader.readAsText(file);
+    } else {
+      // For images or binary, read data url or name
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeAttachedFile = () => {
+    setAttachedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleAction = () => {
     if (isLoading) {
       onStopGenerating();
-    } else if (text.trim()) {
-      onSend(text);
-      setText('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = '44px';
+    } else {
+      let finalMessage = text.trim();
+      if (attachedFile) {
+        const fileContentStr = typeof attachedFile.content === 'string'
+          ? (attachedFile.content.length > 3000 ? attachedFile.content.slice(0, 3000) + '...\n[Truncated]' : attachedFile.content)
+          : '[Binary/Image File Data]';
+        
+        finalMessage = `${finalMessage}\n\n📁 [Attached File: ${attachedFile.name}]\n\`\`\`\n${fileContentStr}\n\`\`\``.trim();
+      }
+
+      if (finalMessage) {
+        onSend(finalMessage);
+        setText('');
+        setAttachedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        if (textareaRef.current) {
+          textareaRef.current.style.height = '44px';
+        }
       }
     }
   };
@@ -31,9 +84,33 @@ function InputBar({ onSend, isLoading, onStopGenerating, showToast }) {
     }
   };
 
+  const canSubmit = (text.trim().length > 0 || attachedFile !== null) && !isLoading;
+
   return (
     <div className="composer-container">
       <div className="composer-box">
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          onChange={handleFileSelect}
+        />
+
+        {/* File attachment preview badge */}
+        {attachedFile && (
+          <div className="attached-file-chip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <span className="file-name">{attachedFile.name}</span>
+            <span className="file-size">({attachedFile.size})</span>
+            <button className="remove-file-btn" onClick={removeAttachedFile} title="Remove file">
+              ✕
+            </button>
+          </div>
+        )}
+
         <textarea
           ref={textareaRef}
           className="composer-textarea"
@@ -50,25 +127,11 @@ function InputBar({ onSend, isLoading, onStopGenerating, showToast }) {
             <button
               className="composer-tool-btn"
               title="Attach file or code"
-              onClick={() => showToast('File upload attached')}
+              onClick={() => fileInputRef.current?.click()}
               disabled={isLoading}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-              </svg>
-            </button>
-
-            <button
-              className="composer-tool-btn"
-              title="Insert Emoji"
-              onClick={() => {
-                setText(prev => prev + '✨');
-                showToast('Emoji inserted');
-              }}
-              disabled={isLoading}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
               </svg>
             </button>
 
@@ -97,9 +160,9 @@ function InputBar({ onSend, isLoading, onStopGenerating, showToast }) {
               </button>
             ) : (
               <button
-                className={`send-btn ${text.trim() ? 'active' : ''}`}
+                className={`send-btn ${canSubmit ? 'active' : ''}`}
                 onClick={handleAction}
-                disabled={!text.trim()}
+                disabled={!canSubmit}
                 title="Send message (Enter)"
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
