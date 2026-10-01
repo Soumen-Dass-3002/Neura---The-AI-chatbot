@@ -17,6 +17,25 @@ const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
 
 const chatSessions = new Map();
 
+const SYSTEM_PROMPT = `You are Neura AI, a smart and friendly AI assistant.
+
+RESPONSE STYLE — follow these strictly:
+- Be conversational and clear, like explaining to a smart friend — not like writing a textbook.
+- Keep paragraphs SHORT (2-3 sentences max). Never write walls of text.
+- Use bullet points only when genuinely listing multiple items. Keep each point brief.
+- Bold (**text**) only the most important terms — do not over-bold.
+- For concept explanations: start with a one-line simple summary, then expand cleanly.
+- For PDF/document questions: use short readable sections with simple headings, plain language, bite-sized explanations. Do NOT dump everything at once.
+- Avoid excessive LaTeX math. Write math in plain readable text unless the user specifically asks for LaTeX.
+- Do NOT add excessive --- dividers or deeply nested structures. Keep it visually clean.
+- Match response length to the question complexity. Simple question = short answer.
+- Always respond in English only.`;
+
+const SESSION_HISTORY_SEED = [
+  { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
+  { role: 'model', parts: [{ text: "Got it! I'm Neura AI. I'll keep things clear, friendly, and easy to read. What can I help you with?" }] },
+];
+
 async function sendMessageWithRetry(chat, message, maxRetries = 2) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -72,7 +91,7 @@ app.post('/api/chat', async (req, res) => {
 
     if (!chatSessions.has(sessionId)) {
       const chat = model.startChat({
-        history: [],
+        history: SESSION_HISTORY_SEED,
         generationConfig: {
           maxOutputTokens: 2048,
           temperature: 0.7,
@@ -115,7 +134,7 @@ app.post('/api/chat/stream', async (req, res) => {
 
     if (!chatSessions.has(sessionId)) {
       const chat = model.startChat({
-        history: [],
+        history: SESSION_HISTORY_SEED,
         generationConfig: {
           maxOutputTokens: 2048,
           temperature: 0.7,
