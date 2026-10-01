@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://neura-backend.onrender.com/api/:path*"
+      "destination": "https://neura-the-ai-chatbot-2.onrender.com/api/:path*"
     }
   ]
 }

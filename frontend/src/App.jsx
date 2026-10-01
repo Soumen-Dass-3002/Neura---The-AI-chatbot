@@ -6,8 +6,8 @@ import InputBar from './components/InputBar';
 const STORAGE_KEY_HISTORY = 'neura_chat_history_v1';
 const STORAGE_KEY_ACTIVE = 'neura_active_chat_v1';
 
-// Base API URL from environment variable (e.g. Render backend URL) or empty for local proxy
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// Direct production backend URL fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://neura-the-ai-chatbot-2.onrender.com';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
