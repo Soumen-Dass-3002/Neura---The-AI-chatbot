@@ -40,7 +40,6 @@ function App() {
   const abortControllerRef = useRef(null);
   const toastTimeoutRef = useRef(null);
 
-  // Save to localStorage whenever chatHistory or activeChatId changes
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(chatHistory));
@@ -105,7 +104,10 @@ function App() {
     setIsLoading(true);
     abortControllerRef.current = new AbortController();
 
+    let streamSuccess = false;
+
     try {
+      // 1. Try Streaming SSE Endpoint
       const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,73 +115,112 @@ function App() {
         signal: abortControllerRef.current.signal,
       });
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = '';
+      if (response.ok && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.chunk) {
-                fullContent += data.chunk;
-                setChatHistory(prev =>
-                  prev.map(chat =>
-                    chat.id === targetChatId
-                      ? {
-                          ...chat,
-                          messages: chat.messages.map(msg =>
-                            msg.id === aiMsgId ? { ...msg, content: fullContent } : msg
-                          )
-                        }
-                      : chat
-                  )
-                );
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.chunk) {
+                  fullContent += data.chunk;
+                  streamSuccess = true;
+                  setChatHistory(prev =>
+                    prev.map(chat =>
+                      chat.id === targetChatId
+                        ? {
+                            ...chat,
+                            messages: chat.messages.map(msg =>
+                              msg.id === aiMsgId ? { ...msg, content: fullContent } : msg
+                            )
+                          }
+                        : chat
+                    )
+                  );
+                }
+                if (data.done) {
+                  setChatHistory(prev =>
+                    prev.map(chat =>
+                      chat.id === targetChatId
+                        ? {
+                            ...chat,
+                            messages: chat.messages.map(msg =>
+                              msg.id === aiMsgId ? { ...msg, isStreaming: false } : msg
+                            )
+                          }
+                        : chat
+                    )
+                  );
+                }
+              } catch (e) {
+                // Ignore chunk parse error
               }
-              if (data.done) {
-                setChatHistory(prev =>
-                  prev.map(chat =>
-                    chat.id === targetChatId
-                      ? {
-                          ...chat,
-                          messages: chat.messages.map(msg =>
-                            msg.id === aiMsgId ? { ...msg, isStreaming: false } : msg
-                          )
-                        }
-                      : chat
-                  )
-                );
-              }
-            } catch (e) {
-              // Skip partial JSON chunks
             }
           }
         }
       }
     } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Error:', error);
-        setChatHistory(prev =>
-          prev.map(chat =>
-            chat.id === targetChatId
-              ? {
-                  ...chat,
-                  messages: chat.messages.map(msg =>
-                    msg.id === aiMsgId
-                      ? { ...msg, content: 'Unable to connect to AI server. Please check backend connection.', isStreaming: false }
-                      : msg
-                  )
-                }
-              : chat
-          )
-        );
+      if (error.name === 'AbortError') {
+        setIsLoading(false);
+        return;
+      }
+      console.warn('Streaming failed, trying REST fallback...', error);
+    }
+
+    // 2. Fallback REST Endpoint if streaming didn't produce content
+    if (!streamSuccess) {
+      try {
+        const restRes = await fetch(`${API_BASE_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, sessionId: targetChatId }),
+          signal: abortControllerRef.current.signal,
+        });
+
+        const data = await restRes.json();
+        if (data.reply) {
+          setChatHistory(prev =>
+            prev.map(chat =>
+              chat.id === targetChatId
+                ? {
+                    ...chat,
+                    messages: chat.messages.map(msg =>
+                      msg.id === aiMsgId ? { ...msg, content: data.reply, isStreaming: false } : msg
+                    )
+                  }
+                : chat
+            )
+          );
+        } else {
+          throw new Error('No reply from server');
+        }
+      } catch (fallbackError) {
+        if (fallbackError.name !== 'AbortError') {
+          console.error('Fallback Error:', fallbackError);
+          setChatHistory(prev =>
+            prev.map(chat =>
+              chat.id === targetChatId
+                ? {
+                    ...chat,
+                    messages: chat.messages.map(msg =>
+                      msg.id === aiMsgId
+                        ? { ...msg, content: 'Unable to connect to AI server. Please refresh the page.', isStreaming: false }
+                        : msg
+                    )
+                  }
+                : chat
+            )
+          );
+        }
       }
     }
 
