@@ -6,6 +6,9 @@ import InputBar from './components/InputBar';
 const STORAGE_KEY_HISTORY = 'neura_chat_history_v1';
 const STORAGE_KEY_ACTIVE = 'neura_active_chat_v1';
 
+// Base API URL from environment variable (e.g. Render backend URL) or empty for local proxy
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +79,6 @@ function App() {
     let targetChatId = activeChatId;
     const userMsg = { id: Date.now(), role: 'user', content: text, timestamp: new Date() };
     const aiMsgId = Date.now() + 1;
-    // Empty AI content initially (TypingIndicator renders 3 dots, NO duplicate text bubble)
     const aiMsg = { id: aiMsgId, role: 'assistant', content: '', timestamp: new Date(), isStreaming: true };
 
     if (!targetChatId) {
@@ -104,7 +106,7 @@ function App() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await fetch('/api/chat/stream', {
+      const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, sessionId: targetChatId }),
