@@ -3,16 +3,31 @@ import './Sidebar.css';
 
 function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelectChat, onDeleteChat, showToast }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const filteredHistory = chatHistory.filter(chat =>
     chat.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleAccountClick = () => {
+    setAccountMenuOpen(prev => !prev);
+  };
+
+  const handleAccountOption = (option) => {
+    setAccountMenuOpen(false);
+    showToast(`${option} opened`);
+  };
 
   return (
     <>
       {/* Mobile Backdrop Overlay */}
       {isOpen && (
         <div className="sidebar-backdrop" onClick={onToggle} />
+      )}
+
+      {/* Click outside to close account menu */}
+      {accountMenuOpen && (
+        <div className="account-menu-backdrop" onClick={() => setAccountMenuOpen(false)} />
       )}
 
       <aside className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
@@ -88,30 +103,40 @@ function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelec
           )}
         </div>
 
+        {/* Footer — only user profile bar, no Settings/Help links */}
         <div className="sidebar-footer">
-          <a className="footer-link-btn" onClick={() => showToast('Settings opened')}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
-            <span>Settings</span>
-          </a>
-
-          <a className="footer-link-btn" onClick={() => showToast('Help & Support')}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/><path d="9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            <span>Help & Support</span>
-          </a>
-
-          <div className="user-profile-bar" onClick={() => showToast('Account details: Sarah Chen')}>
-            <div className="user-avatar">SC</div>
+          <div className="user-profile-bar" onClick={handleAccountClick}>
+            <div className="user-avatar">SD</div>
             <div className="user-info">
-              <div className="user-name">Sarah Chen</div>
-              <div className="user-plan">Enterprise Workspace</div>
+              <div className="user-name">Soumen Dass</div>
+              <div className="user-plan">Free Plan</div>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2"
+              style={{ transform: accountMenuOpen ? 'rotate(90deg)' : 'rotate(270deg)', transition: '0.2s' }}
+            >
               <path d="m9 18 6-6-6-6"/>
             </svg>
+
+            {/* Account popup menu */}
+            {accountMenuOpen && (
+              <div className="account-popup-menu">
+                <button className="account-menu-item" onClick={() => handleAccountOption('Account')}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                  </svg>
+                  <span>Account</span>
+                </button>
+                <button className="account-menu-item" onClick={() => handleAccountOption('Settings')}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <span>Settings</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </aside>

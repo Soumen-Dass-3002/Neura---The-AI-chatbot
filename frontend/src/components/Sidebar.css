@@ -337,3 +337,66 @@
     display: flex;
   }
 }
+
+/* ── Account popup menu ───────────────────────────────────────────── */
+.account-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+}
+
+.user-profile-bar {
+  position: relative;
+}
+
+.account-popup-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  z-index: 200;
+  animation: popupSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes popupSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.account-menu-item:hover {
+  background: #F1F5F9;
+  color: #1E293B;
+}
+
+.account-menu-item svg {
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.account-menu-item:hover svg {
+  color: #4F46E5;
+}
+
