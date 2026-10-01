@@ -13,18 +13,57 @@
   justify-content: flex-end;
 }
 
+.user-bubble-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 78%;
+  position: relative;
+}
+
 .user-bubble {
   background: var(--user-bubble-bg);
   border: 1px solid var(--user-bubble-border);
   color: var(--text-primary);
   padding: 13px 18px;
   border-radius: 18px 18px 4px 18px;
-  max-width: 78%;
   font-size: 14.5px;
   line-height: 1.55;
   font-weight: 450;
   box-shadow: var(--shadow-sm);
   word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.user-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.user-bubble-container:hover .user-action-bar {
+  opacity: 1;
+}
+
+.user-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+}
+
+.user-action-btn:hover {
+  background: var(--bg-surface-subtle);
+  color: var(--text-primary);
 }
 
 .message-row.assistant {
@@ -104,7 +143,7 @@
   align-items: center;
   gap: 4px;
   margin-top: 10px;
-  opacity: 0;
+  opacity: 0.7;
   transition: opacity 0.2s ease;
 }
 
@@ -129,9 +168,4 @@
 .ai-action-btn:hover {
   background: var(--bg-surface-subtle);
   color: var(--text-primary);
-}
-
-.empty-content {
-  color: var(--text-muted);
-  font-style: italic;
 }

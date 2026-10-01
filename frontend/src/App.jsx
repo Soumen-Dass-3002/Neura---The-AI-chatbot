@@ -9,13 +9,13 @@ const STORAGE_KEY_HISTORY = 'neura_chat_history_v1';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://neura-the-ai-chatbot-2.onrender.com';
 
 function App() {
-  // Mobile sidebar closed by default
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Neura Intelligence');
   const [toastText, setToastText] = useState('');
   const [toastShow, setToastShow] = useState(false);
+  const [editingText, setEditingText] = useState('');
 
   // Initialize Chat History from localStorage so previous chats persist in sidebar
   const [chatHistory, setChatHistory] = useState(() => {
@@ -65,7 +65,6 @@ function App() {
 
     if (!targetChatId) {
       targetChatId = `chat-${Date.now()}`;
-      // Clean display title for new chat
       const firstLine = text.split('\n')[0];
       const title = firstLine.length > 25 ? firstLine.slice(0, 24) + '...' : firstLine;
       const newChat = {
@@ -87,6 +86,7 @@ function App() {
     }
 
     setIsLoading(true);
+    setEditingText('');
     abortControllerRef.current = new AbortController();
 
     let streamSuccess = false;
@@ -234,8 +234,32 @@ function App() {
     showToast('Generation stopped');
   }, [activeChatId, showToast]);
 
+  const handleEditUserMessage = useCallback((content, msgId) => {
+    // Strip file attachment headers if present for clean text editing
+    const cleanText = content.split('\n\n📁 [Document:')[0].trim();
+    setEditingText(cleanText);
+
+    // Truncate messages in active chat up to the edited message
+    if (activeChatId) {
+      setChatHistory(prev =>
+        prev.map(chat => {
+          if (chat.id === activeChatId) {
+            const idx = chat.messages.findIndex(m => m.id === msgId);
+            return {
+              ...chat,
+              messages: idx !== -1 ? chat.messages.slice(0, idx) : chat.messages
+            };
+          }
+          return chat;
+        })
+      );
+    }
+    showToast('Editing message...');
+  }, [activeChatId, showToast]);
+
   const handleNewChat = useCallback(() => {
     setActiveChatId(null);
+    setEditingText('');
     showToast('Ready for a new conversation');
     if (window.innerWidth <= 900) {
       setSidebarOpen(false);
@@ -244,6 +268,7 @@ function App() {
 
   const selectChat = useCallback((chatId) => {
     setActiveChatId(chatId);
+    setEditingText('');
     if (window.innerWidth <= 900) {
       setSidebarOpen(false);
     }
@@ -405,6 +430,7 @@ function App() {
           messages={currentMessages}
           isLoading={isLoading}
           onSelectSuggestion={(text) => sendMessage(text)}
+          onEditUserMessage={handleEditUserMessage}
           showToast={showToast}
         />
 
@@ -412,6 +438,7 @@ function App() {
           onSend={sendMessage}
           isLoading={isLoading}
           onStopGenerating={stopGenerating}
+          initialText={editingText}
           showToast={showToast}
         />
       </main>

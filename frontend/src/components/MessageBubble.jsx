@@ -1,12 +1,14 @@
 import React from 'react';
 import './MessageBubble.css';
 
-function MessageBubble({ message, showToast }) {
+function MessageBubble({ message, showToast, onEditUserMessage }) {
   const isUser = message.role === 'user';
 
   const copyContent = () => {
-    navigator.clipboard.writeText(message.content);
-    showToast('Message copied to clipboard');
+    if (message.content) {
+      navigator.clipboard.writeText(message.content);
+      showToast('Message copied to clipboard');
+    }
   };
 
   const handleFeedback = (type) => {
@@ -22,17 +24,40 @@ function MessageBubble({ message, showToast }) {
       )}
 
       {isUser ? (
-        <div className="user-bubble">{message.content}</div>
+        <div className="user-bubble-container">
+          <div className="user-bubble">{message.content}</div>
+          <div className="user-action-bar">
+            <button
+              className="user-action-btn"
+              onClick={() => onEditUserMessage && onEditUserMessage(message.content, message.id)}
+              title="Edit message"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              </svg>
+            </button>
+            <button
+              className="user-action-btn"
+              onClick={copyContent}
+              title="Copy text"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="ai-content-body">
           <div className="ai-text-block">
-            {message.content && (
+            {message.content ? (
               <div dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content) }} />
-            )}
+            ) : null}
             {message.isStreaming && <span className="streaming-cursor"></span>}
           </div>
 
-          {!message.isStreaming && message.content && (
+          {message.content && (
             <div className="ai-action-bar">
               <button className="ai-action-btn" onClick={copyContent} title="Copy response">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -64,6 +89,11 @@ function formatMarkdown(text) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+
+  // Code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    return `<div class="code-block-container"><div class="code-header"><span class="code-lang-label">${lang || 'code'}</span></div><div class="code-content"><code>${code}</code></div></div>`;
+  });
 
   // Bold
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');

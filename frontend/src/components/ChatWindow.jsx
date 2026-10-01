@@ -3,7 +3,7 @@ import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 import './ChatWindow.css';
 
-function ChatWindow({ messages, isLoading, onSelectSuggestion, showToast }) {
+function ChatWindow({ messages, isLoading, onSelectSuggestion, onEditUserMessage, showToast }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -61,8 +61,6 @@ function ChatWindow({ messages, isLoading, onSelectSuggestion, showToast }) {
     }
   ];
 
-  // Filter out the empty placeholder message when rendering MessageBubbles,
-  // because the TypingIndicator renders the 3 dots for empty content while loading!
   const renderedMessages = messages.filter(
     msg => !(msg.role === 'assistant' && msg.content === '' && isLoading)
   );
@@ -107,7 +105,12 @@ function ChatWindow({ messages, isLoading, onSelectSuggestion, showToast }) {
         ) : (
           <div className="messages-wrapper">
             {renderedMessages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} showToast={showToast} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                showToast={showToast}
+                onEditUserMessage={onEditUserMessage}
+              />
             ))}
 
             {showDots && <TypingIndicator />}
