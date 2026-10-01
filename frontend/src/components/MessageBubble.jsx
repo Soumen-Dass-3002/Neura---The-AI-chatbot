@@ -25,7 +25,34 @@ function MessageBubble({ message, showToast, onEditUserMessage }) {
 
       {isUser ? (
         <div className="user-bubble-container">
-          <div className="user-bubble">{message.content}</div>
+          {/* Beautiful file attachment chip — shown above the message bubble */}
+          {message.fileMeta && (
+            <div className="msg-file-chip">
+              <div className={`msg-file-icon ${message.fileMeta.type === 'pdf' ? 'pdf' : 'txt'}`}>
+                {message.fileMeta.type === 'pdf' ? (
+                  <svg width="18" height="22" viewBox="0 0 24 28" fill="none">
+                    <rect width="24" height="28" rx="3" fill="#ef4444"/>
+                    <text x="4" y="19" fontSize="9" fill="white" fontWeight="bold" fontFamily="Arial">PDF</text>
+                  </svg>
+                ) : (
+                  <svg width="18" height="22" viewBox="0 0 24 28" fill="none">
+                    <rect width="24" height="28" rx="3" fill="#6366f1"/>
+                    <text x="4" y="19" fontSize="8" fill="white" fontWeight="bold" fontFamily="Arial">TXT</text>
+                  </svg>
+                )}
+              </div>
+              <div className="msg-file-info">
+                <span className="msg-file-name">{message.fileMeta.name}</span>
+                <span className="msg-file-label">{message.fileMeta.type === 'pdf' ? 'PDF' : 'File'} · {message.fileMeta.size}</span>
+              </div>
+            </div>
+          )}
+
+          {/* User message text bubble — only show if there's actual typed text */}
+          {message.content && message.content.trim() && (
+            <div className="user-bubble">{message.content}</div>
+          )}
+
           <div className="user-action-bar">
             <button
               className="user-action-btn"
@@ -101,8 +128,22 @@ function formatMarkdown(text) {
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+  // Headings
+  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+  // Bullet lists
+  html = html.replace(/^[-*] (.+)/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+  // Numbered lists
+  html = html.replace(/^\d+\. (.+)/gm, '<li>$1</li>');
   // Paragraphs
-  html = html.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+  html = html.split('\n\n').map(p => {
+    p = p.trim();
+    if (!p) return '';
+    if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<li') || p.startsWith('<div')) return p;
+    return `<p>${p.replace(/\n/g, '<br/>')}</p>`;
+  }).join('');
 
   return html;
 }

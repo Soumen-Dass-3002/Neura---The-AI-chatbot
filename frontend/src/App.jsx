@@ -55,11 +55,19 @@ function App() {
   const activeChat = chatHistory.find(c => c.id === activeChatId);
   const currentMessages = activeChat ? activeChat.messages : [];
 
-  const sendMessage = useCallback(async (text) => {
+  const sendMessage = useCallback(async (text, fileMeta = null, displayText = null) => {
     if (!text.trim() || isLoading) return;
 
     let targetChatId = activeChatId;
-    const userMsg = { id: Date.now(), role: 'user', content: text, timestamp: new Date() };
+    // displayText is the clean user-typed text (without the raw file content appended)
+    const userMsg = {
+      id: Date.now(),
+      role: 'user',
+      content: displayText || text,
+      fileMeta: fileMeta || null,
+      timestamp: new Date()
+    };
+
     const aiMsgId = Date.now() + 1;
     const aiMsg = { id: aiMsgId, role: 'assistant', content: '', timestamp: new Date(), isStreaming: true };
 
