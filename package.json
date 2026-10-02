@@ -1,0 +1,9 @@
+{
+  "name": "neura-ai-chatbot-root",
+  "version": "1.0.0",
+  "description": "Root orchestrator for Neura AI Chatbot",
+  "scripts": {
+    "build": "cd backend && npm install",
+    "start": "node backend/server.js"
+  }
+}
