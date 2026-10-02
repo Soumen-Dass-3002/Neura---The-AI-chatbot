@@ -27,31 +27,52 @@ function App() {
     } catch { return null; }
   });
 
-  // Initialize Chat History from localStorage so previous chats persist in sidebar
-  const [chatHistory, setChatHistory] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_HISTORY);
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error('Failed to load history from localStorage', e);
-      return [];
-    }
-  });
-
-  // Always start on "New Chat" (null activeChatId) when website or new tab opens!
+  const [chatHistory, setChatHistory] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
 
   const abortControllerRef = useRef(null);
   const toastTimeoutRef = useRef(null);
 
-  // Save chat history to localStorage on updates
+  // Fetch chats from backend MongoDB when user logs in
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(chatHistory));
-    } catch (e) {
-      console.error('Failed to save history to localStorage', e);
-    }
-  }, [chatHistory]);
+    if (!currentUser || !currentUser.token) return;
+
+    fetch(`${API_BASE_URL}/api/chats`, {
+      headers: { Authorization: `Bearer ${currentUser.token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const formatted = data.map(c => ({
+            id: c.chatId,
+            title: c.title,
+            messages: c.messages || [],
+            timestamp: c.updatedAt || c.createdAt
+          }));
+          setChatHistory(formatted);
+        }
+      })
+      .catch(err => console.error('Failed to load chats from MongoDB:', err));
+  }, [currentUser]);
+
+  // Sync active chat changes to MongoDB
+  const syncChatToDB = useCallback((chatToSave) => {
+    if (!currentUser || !currentUser.token) return;
+
+    fetch(`${API_BASE_URL}/api/chats`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${currentUser.token}`
+      },
+      body: JSON.stringify({
+        chatId: chatToSave.id,
+        title: chatToSave.title,
+        messages: chatToSave.messages
+      })
+    }).catch(err => console.error('Failed to sync chat to DB:', err));
+  }, [currentUser]);
+
 
   const showToast = useCallback((msg) => {
     setToastText(msg);
@@ -297,8 +318,15 @@ function App() {
     if (activeChatId === chatId) {
       setActiveChatId(null);
     }
+    if (currentUser && currentUser.token) {
+      fetch(`${API_BASE_URL}/api/chats/${chatId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${currentUser.token}` }
+      }).catch(err => console.error('Failed to delete chat from DB:', err));
+    }
     showToast('Conversation deleted');
-  }, [activeChatId, showToast]);
+  }, [activeChatId, currentUser, showToast]);
+
 
   const selectModel = useCallback((modelName) => {
     setSelectedModel(modelName);

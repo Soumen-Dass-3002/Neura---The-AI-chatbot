@@ -1,7 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const User = require('./models/User');
+const Chat = require('./models/Chat');
+const authMiddleware = require('./middleware/auth');
 
 dotenv.config();
 
@@ -11,8 +17,16 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// MongoDB Connection
+if (process.env.MONGODB_URI) {
+  mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('Successfully connected to MongoDB Atlas.'))
+    .catch((err) => console.error('MongoDB connection error:', err));
+} else {
+  console.warn('MONGODB_URI not found in environment variables.');
+}
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-// gemini-flash-lite-latest provides sub-second (<1s) instant responses
 const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
 
 const chatSessions = new Map();
@@ -34,7 +48,6 @@ STRICT RULES — never break these:
 
 const SESSION_HISTORY_SEED = [
   { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
-
   { role: 'model', parts: [{ text: "Got it! I'm Neura AI. I'll keep things clear, friendly, and easy to read. What can I help you with?" }] },
 ];
 
@@ -72,9 +85,141 @@ async function sendMessageStreamWithRetry(chat, message, maxRetries = 2) {
   throw lastError;
 }
 
+// ── Health Check ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Neura AI Service is operational.' });
 });
+
+// ── Authentication Endpoints ───────────────────────────────────────
+
+// 1. Signup
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    const newUser = new User({ name, email, password });
+    await newUser.save();
+
+    const token = jwt.sign(
+      { userId: newUser._id, email: newUser.email, name: newUser.name },
+      process.env.JWT_SECRET || 'neura_fallback_secret',
+      { expiresIn: '30d' }
+    );
+
+    res.status(201).json({
+      message: 'Account created successfully',
+      token,
+      user: { id: newUser._id, name: newUser.name, email: newUser.email }
+    });
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(500).json({ error: 'Server error during signup' });
+  }
+});
+
+// 2. Login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid email or password' });
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, name: user.name },
+      process.env.JWT_SECRET || 'neura_fallback_secret',
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      message: 'Logged in successfully',
+      token,
+      user: { id: user._id, name: user.name, email: user.email }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+// ── User Private Chat Persistence Endpoints ────────────────────────
+
+// Fetch all chats for logged in user
+app.get('/api/chats', authMiddleware, async (req, res) => {
+  try {
+    const chats = await Chat.find({ user: req.user.userId }).sort({ updatedAt: -1 });
+    res.json(chats);
+  } catch (err) {
+    console.error('Fetch chats error:', err);
+    res.status(500).json({ error: 'Failed to fetch chats' });
+  }
+});
+
+// Save or Update a chat for logged in user
+app.post('/api/chats', authMiddleware, async (req, res) => {
+  try {
+    const { chatId, title, messages } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ error: 'chatId is required' });
+    }
+
+    let chat = await Chat.findOne({ chatId, user: req.user.userId });
+
+    if (chat) {
+      chat.title = title || chat.title;
+      chat.messages = messages;
+      await chat.save();
+    } else {
+      chat = new Chat({
+        chatId,
+        user: req.user.userId,
+        title: title || 'New Conversation',
+        messages
+      });
+      await chat.save();
+    }
+
+    res.json(chat);
+  } catch (err) {
+    console.error('Save chat error:', err);
+    res.status(500).json({ error: 'Failed to save chat' });
+  }
+});
+
+// Delete a chat for logged in user
+app.delete('/api/chats/:chatId', authMiddleware, async (req, res) => {
+  try {
+    await Chat.deleteOne({ chatId: req.params.chatId, user: req.user.userId });
+    chatSessions.delete(req.params.chatId);
+    res.json({ message: 'Chat deleted successfully' });
+  } catch (err) {
+    console.error('Delete chat error:', err);
+    res.status(500).json({ error: 'Failed to delete chat' });
+  }
+});
+
+// ── AI Chat Endpoints ─────────────────────────────────────────────
 
 app.post('/api/chat', async (req, res) => {
   try {

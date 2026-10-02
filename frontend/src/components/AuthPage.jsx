@@ -28,17 +28,38 @@ function AuthPage({ onLogin }) {
 
     setLoading(true);
 
-    // Simulate loading — replace with real API call later
-    setTimeout(() => {
-      setLoading(false);
-      // Temporarily log in with a fake token so UI works
-      onLogin({
-        name: form.name || form.email.split('@')[0],
-        email: form.email,
-        token: 'demo-token-placeholder'
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://neura-the-ai-chatbot-2.onrender.com';
+    const endpoint = mode === 'signup' ? `${API_BASE_URL}/api/auth/signup` : `${API_BASE_URL}/api/auth/login`;
+    const payload = mode === 'signup'
+      ? { name: form.name, email: form.email, password: form.password }
+      : { email: form.email, password: form.password };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
-    }, 1200);
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+
+      onLogin({
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        token: data.token
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   const switchMode = () => {
     setMode(prev => prev === 'login' ? 'signup' : 'login');
