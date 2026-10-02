@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import './Sidebar.css';
 
-function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelectChat, onDeleteChat, showToast }) {
+function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelectChat, onDeleteChat, showToast, currentUser, onLogout }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const filteredHistory = chatHistory.filter(chat =>
     chat.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
 
   const handleAccountClick = () => {
     setAccountMenuOpen(prev => !prev);
@@ -103,13 +104,15 @@ function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelec
           )}
         </div>
 
-        {/* Footer — only user profile bar, no Settings/Help links */}
+        {/* Footer — user profile bar with dynamic user info and account popup */}
         <div className="sidebar-footer">
           <div className="user-profile-bar" onClick={handleAccountClick}>
-            <div className="user-avatar">SD</div>
+            <div className="user-avatar">
+              {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'U'}
+            </div>
             <div className="user-info">
-              <div className="user-name">Soumen Dass</div>
-              <div className="user-plan">Free Plan</div>
+              <div className="user-name">{currentUser?.name || 'User'}</div>
+              <div className="user-plan">{currentUser?.email || 'Free Plan'}</div>
             </div>
             <svg
               width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -135,10 +138,17 @@ function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelec
                   </svg>
                   <span>Settings</span>
                 </button>
+                <button className="account-menu-item" onClick={() => { setAccountMenuOpen(false); onLogout(); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  <span style={{ color: '#EF4444' }}>Sign Out</span>
+                </button>
               </div>
             )}
           </div>
         </div>
+
       </aside>
     </>
   );

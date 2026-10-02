@@ -2,8 +2,10 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import InputBar from './components/InputBar';
+import AuthPage from './components/AuthPage';
 
 const STORAGE_KEY_HISTORY = 'neura_chat_history_v1';
+const STORAGE_KEY_USER    = 'neura_user_v1';
 
 // Direct production backend URL fallback
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://neura-the-ai-chatbot-2.onrender.com';
@@ -16,6 +18,14 @@ function App() {
   const [toastText, setToastText] = useState('');
   const [toastShow, setToastShow] = useState(false);
   const [editingText, setEditingText] = useState('');
+
+  // Auth state — restore from localStorage so user stays logged in on refresh
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_USER);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
 
   // Initialize Chat History from localStorage so previous chats persist in sidebar
   const [chatHistory, setChatHistory] = useState(() => {
@@ -296,6 +306,26 @@ function App() {
     showToast(`Active model changed to: ${modelName}`);
   }, [showToast]);
 
+  // ── Auth handlers ───────────────────────────────────────────────
+  const handleLogin = useCallback((userData) => {
+    setCurrentUser(userData);
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userData));
+    showToast(`Welcome back, ${userData.name}!`);
+  }, [showToast]);
+
+  const handleLogout = useCallback(() => {
+    setCurrentUser(null);
+    localStorage.removeItem(STORAGE_KEY_USER);
+    setActiveChatId(null);
+    setChatHistory([]);
+    showToast('Signed out successfully');
+  }, []);
+
+  // ── Auth gate — show login/signup if no user ────────────────────
+  if (!currentUser) {
+    return <AuthPage onLogin={handleLogin} />;
+  }
+
   const conversationTitle = activeChat ? activeChat.title : 'New Conversation';
 
   return (
@@ -311,7 +341,10 @@ function App() {
         onSelectChat={selectChat}
         onDeleteChat={deleteChat}
         showToast={showToast}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
+
 
       <main className="main-workspace">
         <header className="top-navbar">
