@@ -138,12 +138,20 @@ function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelec
                   </svg>
                   <span>Settings</span>
                 </button>
-                <button className="account-menu-item" onClick={() => { setAccountMenuOpen(false); onLogout(); }}>
+                <button
+                  className="account-menu-item"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAccountMenuOpen(false);
+                    if (onLogout) onLogout();
+                  }}
+                >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
                   </svg>
-                  <span style={{ color: '#EF4444' }}>Sign Out</span>
+                  <span style={{ color: '#EF4444', fontWeight: 600 }}>Sign Out</span>
                 </button>
+
               </div>
             )}
           </div>
