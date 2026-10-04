@@ -28,9 +28,6 @@ cd frontend
 npm run dev
 ```
 
-### 5. Open Browser
-Go to **http://localhost:3000** and start chatting!
-
 ## Features
 -  Animated gradient background
 -  Smooth message slide-in animations
