@@ -1,4 +1,4 @@
-# AI Chatbot — Powered by Gemini
+# AI Chatbot 
 
 A beautiful, animated AI chatbot built with **React**, **Plain CSS**, and **Google Gemini 2.0 Flash**.
 
