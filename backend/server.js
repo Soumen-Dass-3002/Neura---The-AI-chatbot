@@ -15,7 +15,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json());
+// Inline media is sent as base64; the normal Express default is too small for it.
+app.use(express.json({ limit: '15mb' }));
 
 // MongoDB Connection
 if (process.env.MONGODB_URI) {
@@ -68,6 +69,29 @@ async function sendMessageWithRetry(chat, message, maxRetries = 2) {
   throw lastError;
 }
 
+function createMessageParts(message, attachments = []) {
+  const parts = [];
+  if (message && message.trim()) parts.push({ text: message.trim() });
+
+  for (const attachment of attachments) {
+    if (!attachment || typeof attachment.mimeType !== 'string' || typeof attachment.data !== 'string') {
+      throw new Error('Invalid media attachment');
+    }
+    if (!/^(image|audio|video)\//.test(attachment.mimeType)) {
+      throw new Error('Only image, audio, and video attachments are supported');
+    }
+    // Base64 expands the original file by about one third. This keeps request
+    // sizes bounded even when the server is deployed without a proxy limit.
+    if (attachment.data.length > 13 * 1024 * 1024) {
+      throw new Error('Media attachment is too large');
+    }
+    parts.push({ inlineData: { mimeType: attachment.mimeType, data: attachment.data } });
+  }
+
+  if (!parts.length) throw new Error('Message or attachment is required');
+  return parts;
+}
+
 async function sendMessageStreamWithRetry(chat, message, maxRetries = 2) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -96,17 +120,24 @@ app.get('/api/health', (req, res) => {
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!name || !email || !password) {
+    if (!name?.trim() || !normalizedEmail || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
-    const newUser = new User({ name, email, password });
+    const newUser = new User({ name: name.trim(), email: normalizedEmail, password });
     await newUser.save();
 
     const token = jwt.sign(
@@ -122,6 +153,12 @@ app.post('/api/auth/signup', async (req, res) => {
     });
   } catch (err) {
     console.error('Signup error:', err);
+    if (err?.code === 11000) {
+      return res.status(409).json({ error: 'User with this email already exists' });
+    }
+    if (err?.name === 'ValidationError') {
+      return res.status(400).json({ error: Object.values(err.errors)[0]?.message || 'Please check the form fields' });
+    }
     res.status(500).json({ error: 'Server error during signup' });
   }
 });
@@ -130,12 +167,13 @@ app.post('/api/auth/signup', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(400).json({ error: 'Invalid email or password' });
     }
@@ -223,10 +261,10 @@ app.delete('/api/chats/:chatId', authMiddleware, async (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, sessionId = 'default' } = req.body;
+    const { message = '', sessionId = 'default', attachments = [] } = req.body;
 
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    if (!message.trim() && !attachments.length) {
+      return res.status(400).json({ error: 'Message or attachment is required' });
     }
 
     if (!process.env.GEMINI_API_KEY) {
@@ -248,7 +286,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const chat = chatSessions.get(sessionId);
-    const result = await sendMessageWithRetry(chat, message);
+    const result = await sendMessageWithRetry(chat, createMessageParts(message, attachments));
     const response = await result.response;
     const reply = response.text();
 
@@ -264,10 +302,10 @@ app.post('/api/chat', async (req, res) => {
 
 app.post('/api/chat/stream', async (req, res) => {
   try {
-    const { message, sessionId = 'default' } = req.body;
+    const { message = '', sessionId = 'default', attachments = [] } = req.body;
 
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    if (!message.trim() && !attachments.length) {
+      return res.status(400).json({ error: 'Message or attachment is required' });
     }
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -291,7 +329,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
 
     const chat = chatSessions.get(sessionId);
-    const result = await sendMessageStreamWithRetry(chat, message);
+    const result = await sendMessageStreamWithRetry(chat, createMessageParts(message, attachments));
 
     for await (const chunk of result.stream) {
       const chunkText = chunk.text();

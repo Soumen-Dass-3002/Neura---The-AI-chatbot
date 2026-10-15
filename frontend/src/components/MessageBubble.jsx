@@ -3,6 +3,13 @@ import './MessageBubble.css';
 
 function MessageBubble({ message, showToast, onEditUserMessage }) {
   const isUser = message.role === 'user';
+  const fileTypeLabel = (type) => {
+    if (type === 'pdf') return 'PDF';
+    if (type === 'image') return 'Image';
+    if (type === 'audio') return 'Audio';
+    if (type === 'video') return 'Video';
+    return 'File';
+  };
 
   const copyContent = () => {
     if (message.content) {
@@ -19,7 +26,7 @@ function MessageBubble({ message, showToast, onEditUserMessage }) {
     <div className={`message-row ${isUser ? 'user' : 'assistant'}`}>
       {!isUser && (
         <div className="ai-avatar">
-          <img src="/logo.png" alt="Neura AI" className="ai-avatar-img" />
+          <img src="/neura-mark.png" alt="Neura AI" className="ai-avatar-img" />
         </div>
       )}
 
@@ -43,7 +50,7 @@ function MessageBubble({ message, showToast, onEditUserMessage }) {
               </div>
               <div className="msg-file-info">
                 <span className="msg-file-name">{message.fileMeta.name}</span>
-                <span className="msg-file-label">{message.fileMeta.type === 'pdf' ? 'PDF' : 'File'} · {message.fileMeta.size}</span>
+                <span className="msg-file-label">{fileTypeLabel(message.fileMeta.type)} · {message.fileMeta.size}</span>
               </div>
             </div>
           )}

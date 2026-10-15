@@ -1,31 +1,26 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import InputBar from './components/InputBar';
 import AuthPage from './components/AuthPage';
 
-const STORAGE_KEY_HISTORY = 'neura_chat_history_v1';
-const STORAGE_KEY_USER    = 'neura_user_v1';
+const STORAGE_KEY_USER = 'neura_user_v1';
+const STORAGE_KEY_SIDEBAR = 'neura_sidebar_open_v1';
 
-// Direct production backend URL fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://neura-the-ai-chatbot-2.onrender.com';
+// Keep API calls same-origin by default. Vite proxies them locally and Vercel
+// rewrites them in production, so local development does not accidentally use
+// the production database.
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem(STORAGE_KEY_SIDEBAR) === 'true');
   const [isLoading, setIsLoading] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Neura Intelligence');
   const [toastText, setToastText] = useState('');
   const [toastShow, setToastShow] = useState(false);
   const [editingText, setEditingText] = useState('');
-
-  // Auth state — restore from localStorage so user stays logged in on refresh
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_USER);
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  const [currentUser, setCurrentUser] = useState(() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY_USER) || 'null'); } catch { return null; } });
 
   const [chatHistory, setChatHistory] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -33,46 +28,12 @@ function App() {
   const abortControllerRef = useRef(null);
   const toastTimeoutRef = useRef(null);
 
-  // Fetch chats from backend MongoDB when user logs in
   useEffect(() => {
-    if (!currentUser || !currentUser.token) return;
+    localStorage.setItem(STORAGE_KEY_SIDEBAR, String(sidebarOpen));
+  }, [sidebarOpen]);
 
-    fetch(`${API_BASE_URL}/api/chats`, {
-      headers: { Authorization: `Bearer ${currentUser.token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          const formatted = data.map(c => ({
-            id: c.chatId,
-            title: c.title,
-            messages: c.messages || [],
-            timestamp: c.updatedAt || c.createdAt
-          }));
-          setChatHistory(formatted);
-        }
-      })
-      .catch(err => console.error('Failed to load chats from MongoDB:', err));
-  }, [currentUser]);
-
-  // Sync active chat changes to MongoDB
-  const syncChatToDB = useCallback((chatToSave) => {
-    if (!currentUser || !currentUser.token) return;
-
-    fetch(`${API_BASE_URL}/api/chats`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token}`
-      },
-      body: JSON.stringify({
-        chatId: chatToSave.id,
-        title: chatToSave.title,
-        messages: chatToSave.messages
-      })
-    }).catch(err => console.error('Failed to sync chat to DB:', err));
-  }, [currentUser]);
-
+  const handleLogin = useCallback((user) => { setCurrentUser(user); localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user)); }, []);
+  const handleLogout = useCallback(() => { abortControllerRef.current?.abort(); localStorage.removeItem(STORAGE_KEY_USER); setCurrentUser(null); setChatHistory([]); setActiveChatId(null); setIsLoading(false); }, []);
 
   const showToast = useCallback((msg) => {
     setToastText(msg);
@@ -86,8 +47,8 @@ function App() {
   const activeChat = chatHistory.find(c => c.id === activeChatId);
   const currentMessages = activeChat ? activeChat.messages : [];
 
-  const sendMessage = useCallback(async (text, fileMeta = null, displayText = null) => {
-    if (!text.trim() || isLoading) return;
+  const sendMessage = useCallback(async (text, fileMeta = null, displayText = null, attachments = []) => {
+    if ((!text.trim() && attachments.length === 0) || isLoading) return;
 
     let targetChatId = activeChatId;
     // displayText is the clean user-typed text (without the raw file content appended)
@@ -135,7 +96,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId: targetChatId }),
+        body: JSON.stringify({ message: text, sessionId: targetChatId, attachments }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -206,7 +167,7 @@ function App() {
         const restRes = await fetch(`${API_BASE_URL}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, sessionId: targetChatId }),
+          body: JSON.stringify({ message: text, sessionId: targetChatId, attachments }),
           signal: abortControllerRef.current.signal,
         });
 
@@ -318,14 +279,8 @@ function App() {
     if (activeChatId === chatId) {
       setActiveChatId(null);
     }
-    if (currentUser && currentUser.token) {
-      fetch(`${API_BASE_URL}/api/chats/${chatId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${currentUser.token}` }
-      }).catch(err => console.error('Failed to delete chat from DB:', err));
-    }
     showToast('Conversation deleted');
-  }, [activeChatId, currentUser, showToast]);
+  }, [activeChatId, showToast]);
 
 
   const selectModel = useCallback((modelName) => {
@@ -334,27 +289,22 @@ function App() {
     showToast(`Active model changed to: ${modelName}`);
   }, [showToast]);
 
-  // ── Auth handlers ───────────────────────────────────────────────
-  const handleLogin = useCallback((userData) => {
-    setCurrentUser(userData);
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userData));
-    showToast(`Welcome back, ${userData.name}!`);
+  const copyConversationLink = useCallback(async () => {
+    const url = new URL(window.location.href);
+    url.search = '';
+    window.history.replaceState({}, '', url);
+
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      showToast('Dashboard link copied');
+    } catch {
+      showToast('Could not copy the link. Please copy it from the address bar.');
+    }
   }, [showToast]);
 
-  const handleLogout = useCallback(() => {
-    setCurrentUser(null);
-    localStorage.removeItem(STORAGE_KEY_USER);
-    setActiveChatId(null);
-    setChatHistory([]);
-    showToast('Signed out successfully');
-  }, []);
-
-  // ── Auth gate — show login/signup if no user ────────────────────
-  if (!currentUser) {
-    return <AuthPage onLogin={handleLogin} />;
-  }
-
   const conversationTitle = activeChat ? activeChat.title : 'New Conversation';
+
+  if (!currentUser) return <AuthPage onLogin={handleLogin} />;
 
   return (
     <div className="app">
@@ -473,10 +423,7 @@ function App() {
           <div className="top-nav-right">
             <button
               className="action-pill-btn"
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                showToast('Conversation share link copied!');
-              }}
+              onClick={copyConversationLink}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
@@ -498,9 +445,9 @@ function App() {
         <ChatWindow
           messages={currentMessages}
           isLoading={isLoading}
-          onSelectSuggestion={(text) => sendMessage(text)}
           onEditUserMessage={handleEditUserMessage}
           showToast={showToast}
+          userName={currentUser?.name}
         />
 
         <InputBar

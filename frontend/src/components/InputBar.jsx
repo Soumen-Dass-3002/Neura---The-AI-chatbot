@@ -51,12 +51,24 @@ function InputBar({ onSend, isLoading, onStopGenerating, initialText = '', showT
     return fullText.trim();
   };
 
+  const readMediaFile = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+      if (!base64) return reject(new Error('The media file could not be read.'));
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('The media file could not be read.'));
+    reader.readAsDataURL(file);
+  });
+
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 15 * 1024 * 1024) {
-      showToast('File too large (max 15MB)');
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('File too large (max 10MB)');
       return;
     }
 
@@ -82,6 +94,29 @@ function InputBar({ onSend, isLoading, onStopGenerating, initialText = '', showT
       return;
     }
 
+    const isMedia = file.type.startsWith('image/') || file.type.startsWith('audio/') || file.type.startsWith('video/');
+    if (isMedia) {
+      try {
+        setIsExtractingPDF(true);
+        const data = await readMediaFile(file);
+        setAttachedFile({
+          name: file.name,
+          size: (file.size / 1024).toFixed(1) + ' KB',
+          type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : 'video',
+          mimeType: file.type,
+          data,
+          previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+        });
+        showToast(`Attached: ${file.name}`);
+      } catch (err) {
+        console.error('Media attachment failed:', err);
+        showToast('Failed to read this media file.');
+      } finally {
+        setIsExtractingPDF(false);
+      }
+      return;
+    }
+
     // Handle Text / Code / Docs files
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -97,6 +132,7 @@ function InputBar({ onSend, isLoading, onStopGenerating, initialText = '', showT
   };
 
   const removeAttachedFile = () => {
+    if (attachedFile?.previewUrl) URL.revokeObjectURL(attachedFile.previewUrl);
     setAttachedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -121,10 +157,18 @@ function InputBar({ onSend, isLoading, onStopGenerating, initialText = '', showT
         aiMessage = `${userText}\n\n📁 [Document: ${attachedFile.name}]\n\`\`\`\n${fileContentStr}\n\`\`\``.trim();
       }
 
+      if (attachedFile && ['image', 'audio', 'video'].includes(attachedFile.type)) {
+        aiMessage = userText || `Please analyze the attached ${attachedFile.type}.`;
+      }
+
       // Send to parent: the AI message text + file metadata for display
-      onSend(aiMessage, attachedFile ? { name: attachedFile.name, size: attachedFile.size, type: attachedFile.type } : null, userText);
+      const attachmentPayload = attachedFile?.data
+        ? [{ mimeType: attachedFile.mimeType, data: attachedFile.data }]
+        : [];
+      onSend(aiMessage, attachedFile ? { name: attachedFile.name, size: attachedFile.size, type: attachedFile.type } : null, userText, attachmentPayload);
 
       setText('');
+      if (attachedFile?.previewUrl) URL.revokeObjectURL(attachedFile.previewUrl);
       setAttachedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (textareaRef.current) textareaRef.current.style.height = '44px';
@@ -148,12 +192,14 @@ function InputBar({ onSend, isLoading, onStopGenerating, initialText = '', showT
           ref={fileInputRef}
           style={{ display: 'none' }}
           onChange={handleFileSelect}
-          accept=".pdf,.txt,.md,.json,.js,.jsx,.ts,.tsx,.py,.html,.css,.csv"
+          accept="image/*,audio/*,video/*,.pdf,.txt,.md,.json,.js,.jsx,.ts,.tsx,.py,.html,.css,.csv"
         />
 
         {attachedFile && (
           <div className="attached-file-chip">
-            {attachedFile.type === 'pdf' ? (
+            {attachedFile.type === 'image' && attachedFile.previewUrl ? (
+              <img src={attachedFile.previewUrl} alt="Attachment preview" className="file-image-preview" />
+            ) : attachedFile.type === 'pdf' ? (
               <div className="file-chip-icon pdf-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#ef4444" stroke="#ef4444" strokeWidth="0"/>
@@ -172,7 +218,7 @@ function InputBar({ onSend, isLoading, onStopGenerating, initialText = '', showT
             )}
             <div className="file-chip-info">
               <span className="file-name">{attachedFile.name}</span>
-              <span className="file-size">{attachedFile.type === 'pdf' ? 'PDF' : 'File'} · {attachedFile.size}</span>
+              <span className="file-size">{attachedFile.type === 'pdf' ? 'PDF' : attachedFile.type === 'text' ? 'File' : attachedFile.type[0].toUpperCase() + attachedFile.type.slice(1)} · {attachedFile.size}</span>
             </div>
             <button className="remove-file-btn" onClick={removeAttachedFile} title="Remove file">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -197,7 +243,7 @@ function InputBar({ onSend, isLoading, onStopGenerating, initialText = '', showT
           <div className="composer-tools-left">
             <button
               className="composer-tool-btn"
-              title="Attach PDF or document"
+              title="Attach media, PDF, or document"
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading || isExtractingPDF}
             >

@@ -3,7 +3,7 @@ import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 import './ChatWindow.css';
 
-function ChatWindow({ messages, isLoading, onSelectSuggestion, onEditUserMessage, showToast }) {
+function ChatWindow({ messages, isLoading, onEditUserMessage, showToast, userName }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -68,39 +68,15 @@ function ChatWindow({ messages, isLoading, onSelectSuggestion, onEditUserMessage
   const showDots = isLoading && messages.length > 0 && messages[messages.length - 1]?.content === '';
 
   return (
-    <div className="chat-scroll-container">
+    <div className={`chat-scroll-container ${messages.length === 0 ? 'welcome-mode' : ''}`}>
       <div className="content-center-column">
         {messages.length === 0 ? (
           <div className="welcome-container">
-            <div className="welcome-icon-wrapper">
-              <div className="welcome-icon-glow"></div>
-              <div className="welcome-icon-box">
-                <img src="/logo.png" alt="Neura AI" className="welcome-logo-img" />
-              </div>
-            </div>
-
-            <h1 className="welcome-heading">How can I help you today?</h1>
+            <p className="welcome-greeting">Hi, {userName || 'there'}</p>
+            <h1 className="welcome-heading"><span>How can I help you today?</span></h1>
             <p className="welcome-subheading">
-              Ask questions, build ideas, write code, analyze data, or explore something new.
+              Ask anything, write code, or explore a new idea.
             </p>
-
-            <div className="suggestions-grid">
-              {suggestions.map(sug => (
-                <div
-                  key={sug.id}
-                  className="suggestion-card"
-                  onClick={() => onSelectSuggestion(sug.text)}
-                >
-                  <div className={`suggestion-card-icon sug-icon-${sug.type}`}>
-                    {sug.icon}
-                  </div>
-                  <div>
-                    <div className="suggestion-title">{sug.title}</div>
-                    <div className="suggestion-desc">{sug.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="messages-wrapper">

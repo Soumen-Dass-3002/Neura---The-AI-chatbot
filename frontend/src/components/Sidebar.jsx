@@ -1,23 +1,14 @@
 import React, { useState } from 'react';
 import './Sidebar.css';
 
-function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelectChat, onDeleteChat, showToast, currentUser, onLogout }) {
+function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelectChat, onDeleteChat, currentUser, onLogout }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [panel, setPanel] = useState(null);
 
   const filteredHistory = chatHistory.filter(chat =>
     chat.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-
-  const handleAccountClick = () => {
-    setAccountMenuOpen(prev => !prev);
-  };
-
-  const handleAccountOption = (option) => {
-    setAccountMenuOpen(false);
-    showToast(`${option} opened`);
-  };
 
   return (
     <>
@@ -26,15 +17,10 @@ function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelec
         <div className="sidebar-backdrop" onClick={onToggle} />
       )}
 
-      {/* Click outside to close account menu */}
-      {accountMenuOpen && (
-        <div className="account-menu-backdrop" onClick={() => setAccountMenuOpen(false)} />
-      )}
-
       <aside className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <a href="#welcome" className="brand-logo-wrap" onClick={(e) => { e.preventDefault(); onNewChat(); }}>
-            <img src="/logo.png" alt="Neura AI" className="brand-logo-img" />
+            <img src="/neura-mark.png" alt="Neura AI" className="brand-logo-img" />
             <div className="brand-title">
               Neura AI
               <span className="brand-badge">PRO</span>
@@ -104,56 +90,24 @@ function Sidebar({ isOpen, onToggle, chatHistory, activeChat, onNewChat, onSelec
           )}
         </div>
 
-        {/* Footer — user profile bar with dynamic user info and account popup */}
+        {accountMenuOpen && <div className="account-menu-backdrop" onClick={() => { setAccountMenuOpen(false); setPanel(null); }} />}
         <div className="sidebar-footer">
-          <div className="user-profile-bar" onClick={handleAccountClick}>
+          <div className="user-profile-bar" onClick={() => setAccountMenuOpen(!accountMenuOpen)} role="button" tabIndex={0} aria-expanded={accountMenuOpen}>
             <div className="user-avatar">
-              {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'U'}
+              {(currentUser.name || 'U').slice(0, 1).toUpperCase()}
             </div>
             <div className="user-info">
-              <div className="user-name">{currentUser?.name || 'User'}</div>
-              <div className="user-plan">{currentUser?.email || 'Free Plan'}</div>
+              <div className="user-name">{currentUser.name || 'User'}</div>
+              <div className="user-plan">{currentUser.email || 'Account'}</div>
             </div>
-            <svg
-              width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2"
-              style={{ transform: accountMenuOpen ? 'rotate(90deg)' : 'rotate(270deg)', transition: '0.2s' }}
-            >
-              <path d="m9 18 6-6-6-6"/>
-            </svg>
-
-            {/* Account popup menu */}
-            {accountMenuOpen && (
-              <div className="account-popup-menu">
-                <button className="account-menu-item" onClick={() => handleAccountOption('Account')}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                  </svg>
-                  <span>Account</span>
-                </button>
-                <button className="account-menu-item" onClick={() => handleAccountOption('Settings')}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  <span>Settings</span>
-                </button>
-                <button
-                  className="account-menu-item"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setAccountMenuOpen(false);
-                    if (onLogout) onLogout();
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-                  </svg>
-                  <span style={{ color: '#EF4444', fontWeight: 600 }}>Sign Out</span>
-                </button>
-
-              </div>
-            )}
+            {accountMenuOpen && <div className="account-popup-menu" onClick={e => e.stopPropagation()}>
+              {panel === 'account' ? <div className="account-detail"><strong>Account</strong><span>{currentUser.name}</span><span>{currentUser.email}</span></div> : panel === 'settings' ? <div className="account-detail"><strong>Settings</strong><span>Streaming responses are on.</span><span>Attachments up to 10 MB.</span></div> : <>
+                <button className="account-menu-item" onClick={() => setPanel('account')}>Account</button>
+                <button className="account-menu-item" onClick={() => setPanel('settings')}>Settings</button>
+                <button className="account-menu-item signout" onClick={onLogout}>Sign out</button>
+              </>}
+              {panel && <button className="account-menu-item" onClick={() => setPanel(null)}>Back</button>}
+            </div>}
           </div>
         </div>
 

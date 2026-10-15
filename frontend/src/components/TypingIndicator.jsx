@@ -5,13 +5,11 @@ function TypingIndicator() {
   return (
     <div className="message-row assistant">
       <div className="ai-avatar thinking">
-        <img src="/logo.png" alt="Neura AI" className="ai-avatar-img" />
+        <img src="/neura-mark.png" alt="Neura AI" className="ai-avatar-img" />
       </div>
       <div className="ai-content-body">
-        <div className="thinking-dots-container">
-          <span className="thinking-dot"></span>
-          <span className="thinking-dot"></span>
-          <span className="thinking-dot"></span>
+        <div className="thinking-dots-container" aria-label="Neura is thinking">
+          <div className="loader"></div>
         </div>
       </div>
     </div>
