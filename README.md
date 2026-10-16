@@ -42,4 +42,4 @@ npm run dev
 - **Backend:** Node.js, Express
 - **AI:** Google Gemini 2.0 Flash (free tier)
 - **Streaming:** Server-Sent Events (SSE)
-# Neura---The-AI-chatbot
+
